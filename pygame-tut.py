@@ -279,8 +279,6 @@ if __name__ == '__main__':
             env.reset()   
             test_reset = 0    
 
-    
-    # main loop
     # while run:
     #     clock.tick(60)
     #     for event in pygame.event.get():
