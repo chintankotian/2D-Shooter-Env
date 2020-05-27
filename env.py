@@ -2,14 +2,19 @@ import pygame
 
 
 class env(object):
-    def __init__(self, display_dimension = (500,400)):
+    def __init__(self, display_dimension = (500,400),fps = 30):
         self.display_width = display_dimension[0]
         self.display_height = display_dimension[1]
         self.players = []
         self.walkRight = [pygame.image.load('images/R1.png'), pygame.image.load('images/R2.png'), pygame.image.load('images/R3.png'), pygame.image.load('images/R4.png'), pygame.image.load('images/R5.png'), pygame.image.load('images/R6.png'), pygame.image.load('images/R7.png'), pygame.image.load('images/R8.png'), pygame.image.load('images/R9.png')]
         self.walkLeft = [pygame.image.load('images/L1.png'), pygame.image.load('images/L2.png'), pygame.image.load('images/L3.png'), pygame.image.load('images/L4.png'), pygame.image.load('images/L5.png'), pygame.image.load('images/L6.png'), pygame.image.load('images/L7.png'), pygame.image.load('images/L8.png'), pygame.image.load('images/L9.png')]
         self.bg = pygame.image.load('images/bg.jpg')
+        self.bg = pygame.transform.scale(self.bg,display_dimension)
         self.char = pygame.image.load('images/standing.png')
+        self.reset_state = False
+        self.frame_count = 0
+        self.fps = fps
+
     
     def getDisplayDim(self):
         return (self.display_width,self.display_height)
@@ -26,41 +31,65 @@ class env(object):
         return state
 
     def reset(self):
+        self.reset_state = False
+
         self.man1.x, self.man1.y = 0,self.display_height - 64
         self.man1.score = 0
         self.man1.bullets = []
+        self.man1.isJump = False
+        self.man1.left = False    
+        self.man1.right = False
+        self.man1.jumpCount = 10
 
         self.man2.x, self.man2.y = self.display_width - 64,self.display_height - 64
         self.man2.score = 0
         self.man2.bullets = []
+        self.man2.isJump = False
+        self.man2.left = False    
+        self.man2.right = False
+        self.man2.jumpCount = 10
+
 
         return [[0,self.display_height - 64,self.display_width - 64,self.display_height - 64,-1,-1],[self.display_width - 64,self.display_height - 64,0,self.display_height - 64,-1,-1]]
     
     # refresh state
-    def redrawWindow(self,mans,win):
+    def redrawWindow(self,mans,win,collision_detect = True):
         self.win.blit(self.bg,(0,0))
         total_bullets = []
+        winner_player = []
+
         for man in mans: 
             man.draw(win)
             total_bullets += man.bullets
 
-        for shot_bullet in total_bullets:
-            self.collision(shot_bullet)
         
         for shot_bullet in total_bullets:
             shot_bullet.draw(win)
 
+        if(collision_detect):
+            for shot_bullet in total_bullets:
+                winner_player += self.collision(shot_bullet)
+            # print(winner_player)
+        
         pygame.display.update()
+        return winner_player
+        
     
     def collision(self,bullet):
     # iterates through all the bullets and checks whether it has collided with the opponents hit box
+        winners = []
         for player in self.players:
             if(player != bullet.player):
                 if(bullet.y - bullet.radius < player.hitBox[1] + player.hitBox[3]) and (bullet.y + bullet.radius > player.hitBox[1]):
                     if(bullet.x + bullet.radius > player.hitBox[0]) and (bullet.x - bullet.radius < player.hitBox[0] + player.hitBox[2]):
                         print(bullet.player.name + " hit "+ player.name)
+                        print('bullet co-ord = ',bullet.x,bullet.y)
+                        print('player co-ord = ',player.x,player.y)
+                        # print('hello')
                         bullet.bullet_pop()
                         bullet.player.score += 1
+                        winners.append(bullet.player)
+        return winners
     
     class bullet(object):
         def __init__(self,outer,x,y,direction,player):
@@ -91,7 +120,7 @@ class env(object):
 
 
     class Player(object):
-        def __init__(self,outer, x, y, width, height, name,score_x,score_y, bullet_interval = 5):
+        def __init__(self,outer, x, y, width, height, name,score_x,score_y, bullet_interval = 1):
             self.x = x
             self.y = y
             self.width = width
@@ -114,6 +143,7 @@ class env(object):
             self.score_x = score_x
             self.score_y = score_y
             self.name_font = pygame.font.SysFont('comicsans', 10, True)
+            self.reward = 0
 
             # self.bullet_velocity = 10
 
@@ -170,12 +200,12 @@ class env(object):
         
         def jump(self):
             self.isJump = True
-            # self.halt()
         
         def cont_jump(self):
             neg = 1
             if(self.isJump):    
                 neg = 1
+                # print('inside is cont jump')
 
                 if self.jumpCount < 0:
                     neg = -1
@@ -199,8 +229,13 @@ class env(object):
                 self.bullets.append(self.outer.getBullet(self.x + self.width/2, self.y + self.height/2, direction, self))
 
     def Step(self,player1,player2):
+        self.clock.tick(self.fps)
+        self.frame_count += 1
+        print(self.frame_count)
         left1, right1, jump1, shoot1 = player1
         left2, right2, jump2, shoot2 = player2
+        self.man1.reward = -1
+        self.man2.reward = -1
 
         #  man 1 control
         if(right1):
@@ -218,11 +253,12 @@ class env(object):
         if not self.man1.isJump:
             if(jump1):
                 self.man1.jump()
-
+        print((self.man1.bullet_shooting_speed == 0))
         if(shoot1  and (self.man1.bullet_shooting_speed == 0)):
             self.man1.shoot()
+            print('shooot')
         
-
+        # man 2 controls
         if(left2):
             self.man2.step_left()
 
@@ -239,20 +275,35 @@ class env(object):
         if(shoot2 and  (self.man2.bullet_shooting_speed == 0)):
             self.man2.shoot()
 
+        
         self.man1.cont_jump()
         self.man2.cont_jump()
 
-        state1 = [self.man1.x,self.man1.y,-1,-1]
-        state2 = [self.man2.x,self.man2.y,-1,-1]
+        state1 = [[self.man1.x,self.man1.y,-1,-1],self.man1.reward]
+        state2 = [[self.man2.x,self.man2.y,-1,-1],self.man2.reward]
 
         if(len(self.man1.bullets) > 0):
-            state1[2], state1[3] = self.man1.bullets[0].x, self.man1.bullets[0].y
+            state1[0][2], state1[0][3] = self.man2.bullets[0].x, self.man2.bullets[0].y
 
         if(len(self.man2.bullets) > 0):
-            state2[2], state2[3] = self.man2.bullets[0].x, self.man2.bullets[0].y
+            state2[0][2], state2[0][3] = self.man1.bullets[0].x, self.man1.bullets[0].y
                 
-        self.redrawWindow(self.players,self.win)
-        return [state1,state2]
+        winners = self.redrawWindow(self.players,self.win)
+        if(len(winners)):
+            if(len(winners) > 1):
+                self.man1.reward += 26
+                self.man2.reward += 26
+            else:
+                winners[0].reward += 51
+
+            self.reset_state = True
+            
+        
+        state1[-1] = self.man1.reward
+        state2[-1] = self.man2.reward
+
+
+        return [state1,state2,self.reset_state]
         # redrawWindow(man2,win)
 
 
@@ -262,72 +313,14 @@ class env(object):
  
 if __name__ == '__main__':
     run = True
-    env = env()
+    env = env(display_dimension=(600,100), fps=60)
     env.create()
-    test_reset = 0
-    clock = pygame.time.Clock()
     while run:
-        clock.tick(60)
-        test_reset += 1
         for event in pygame.event.get():
-            # print(event)
             if(event.type == pygame.QUIT):
                 run = False
-        print(env.Step([1,1,1,1],[1,1,1,1]))
 
-        if(test_reset > 100):
-            env.reset()   
-            test_reset = 0    
-
-    # while run:
-    #     clock.tick(60)
-    #     for event in pygame.event.get():
-    #         # print(event)
-    #         if(event.type == pygame.QUIT):
-    #             run = False
-
-    #     keys = pygame.key.get_pressed()
-    #     # man 1 control
-    #     if(keys[pygame.K_RIGHT]):
-    #         man1.step_right(display_width)
-
-
-    #     elif(keys[pygame.K_LEFT]):
-    #         man1.step_left()
-
-
-    #     else:
-    #         man1.halt()
-    #         # pass
-
-    #     if not man1.isJump:
-    #         if(keys[pygame.K_UP]):
-    #             man1.jump()
-
-    #     if(keys[pygame.K_RCTRL])  and (man1.bullet_shooting_speed == 0):
-    #         man1.shoot()
-
-    #     if(keys[pygame.K_a]):
-    #         man2.step_left()
-
-    #     elif(keys[pygame.K_d]):
-    #         man2.step_right(display_width)
-
-    #     else:
-    #         man2.halt()
-
-    #     # if not isJump:
-    #     if(keys[pygame.K_w]):
-    #         man2.jump()
-
-    #     if(keys[pygame.K_LCTRL]) and  (man2.bullet_shooting_speed == 0):
-    #         man2.shoot()
-
-    #     man1.cont_jump()
-    #     man2.cont_jump()
-
-
-    #     redrawWindow(players,win)
-    #     # redrawWindow(man2,win)
+        data = env.Step([1,1,0,1],[1,1,1,1])
         
-
+        if(data[-1]):
+            env.reset()   
