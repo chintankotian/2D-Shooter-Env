@@ -1,18 +1,8 @@
-# A 2 player 2D shooter game in pygame
-
-## Installing Dependencies
-```bash
-
-pip install -r requirements.txt
-
-```
-## Basic usage
-
- The followig code creates an env and takes random actions
-
-```python
+import pygame
+import numpy as np
 from env import env
-run = True
+if __name__ == "__main__":
+    run = True
     env = env(display_dimension=(600,600), fps=60)
     env.create()
     
@@ -24,6 +14,5 @@ run = True
         data = env.Step(actions)
 
         if(data[-1]):
-            env.reset()  
-
-```
+            env.reset()
+    
