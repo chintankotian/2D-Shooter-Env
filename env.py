@@ -2,7 +2,7 @@ import pygame
 import numpy as np
 
 class env(object):
-    def __init__(self, display_dimension = (500,400), fps = 30, player1_name = 'player-1', player2_name = 'player-2'):
+    def __init__(self, display_dimension = (500,400), fps = 30, player1_name = 'player-1', player2_name = 'player-2',winningScore = 1):
         self.display_width = display_dimension[0]
         self.display_height = display_dimension[1]
         self.players = []
@@ -17,7 +17,7 @@ class env(object):
         self.player1_name = player1_name
         self.player2_name = player2_name
         self.actionSpace = np.array([['player1-action-1', 'player1-action-2', 'player1-action-3', 'player1-action-4'],['player2-action-1', 'player2-action-2', 'player2-action-3', 'player2-action-4']])
-      
+        self.winningScore = winningScore 
         
 
     def getDisplayDim(self):
@@ -31,8 +31,8 @@ class env(object):
         
         self.man1 = self.getPlayer(0,self.display_height - 64,64,64, self.player1_name, 10, 10)
         self.man2 = self.getPlayer(self.display_width - 64,self.display_height - 64,64,64, self.player2_name, self.display_width - 90, 10)
-        state = [[0,self.display_height - 64,self.display_width - 64,self.display_height - 64,-1,-1],[self.display_width - 64,self.display_height - 64,0,self.display_height - 64,-1,-1]]
-        return state
+        # state = [[[0,self.display_height - 64,self.display_width - 64,self.display_height - 64,-1,-1],-1],[[self.display_width - 64,self.display_height - 64,0,self.display_height - 64,-1,-1],1]]
+        # return state
 
     def reset(self):
         self.reset_state = False
@@ -53,9 +53,8 @@ class env(object):
         self.man2.right = False
         self.man2.jumpCount = 10
 
-
-        return [[0,self.display_height - 64,self.display_width - 64,self.display_height - 64,-1,-1],[self.display_width - 64,self.display_height - 64,0,self.display_height - 64,-1,-1]]
-    
+        state = [[[0,self.display_height - 64,self.display_width - 64,self.display_height - 64,-1,-1],-1],[[self.display_width - 64,self.display_height - 64,0,self.display_height - 64,-1,-1],-1], self.reset_state]
+        return state
     # refresh state
     def redrawWindow(self,mans,win,collision_detect = True):
         self.win.blit(self.bg,(0,0))
@@ -97,7 +96,8 @@ class env(object):
                         # print('hello')
                         bullet.bullet_pop()
                         bullet.player.score += 1
-                        winners.append(bullet.player)
+                        if(bullet.player.score == self.winningScore):
+                            winners.append(bullet.player)
         return winners
     
     class bullet(object):
@@ -286,14 +286,14 @@ class env(object):
         self.man1.cont_jump()
         self.man2.cont_jump()
 
-        state1 = [[self.man1.x,self.man1.y,-1,-1],self.man1.reward]
-        state2 = [[self.man2.x,self.man2.y,-1,-1],self.man2.reward]
+        state1 = [[self.man1.x,self.man1.y,self.man2.x,self.man2.y,-1,-1],self.man1.reward]
+        state2 = [[self.man2.x,self.man2.y,self.man1.x,self.man1.y,-1,-1],self.man2.reward]
 
         if(len(self.man2.bullets) > 0):
-            state1[0][2], state1[0][3] = self.man2.bullets[0].x, self.man2.bullets[0].y
+            state1[0][4], state1[0][5] = self.man2.bullets[0].x, self.man2.bullets[0].y
 
         if(len(self.man1.bullets) > 0):
-            state2[0][2], state2[0][3] = self.man1.bullets[0].x, self.man1.bullets[0].y
+            state2[0][5], state2[0][5] = self.man1.bullets[0].x, self.man1.bullets[0].y
                 
         winners = self.redrawWindow(self.players,self.win)
         if(len(winners)):
@@ -322,13 +322,14 @@ if __name__ == '__main__':
     run = True
     env = env(display_dimension=(600,600), fps=60)
     env.create()
-    
+    state = env.reset()
+    print('Initial state = ',state)
     while run:
         for event in pygame.event.get():
             if(event.type == pygame.QUIT):
                 run = False
         actions = env.randomAction()
-        data = env.Step(actions)
-
-        if(data[-1]):
-            env.reset()   
+        state = env.Step(actions)
+        if(state[-1]):
+            print("-"*10 + 'ENV RESET' + "-"*10)
+            state = env.reset()   
