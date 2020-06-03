@@ -43,6 +43,7 @@ player1 and player2 can be human or bot
 
 ### Controls
 
+
 #### Player 1 Control
 * LEFT  - Left Arrow
 * Right - Right Arrow
